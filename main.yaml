@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Parent Template For Visitor Counter 
+
+
+Resources:
+
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+
+      TemplateURL: https://my-cft-projects-templates-mama.s3.ap-south-2.amazonaws.com/Project2-Server-Less/visitors-table.yaml
+
+
+  LambdaStack:
+
+    Type: AWS::CloudFormation::Stack
+    DependsOn: DynamoDBStack
+    Properties:
+
+      TemplateURL: https://my-cft-projects-templates-mama.s3.ap-south-2.amazonaws.com/Project2-Server-Less/lambd-function-exe-role.yaml
+
+      Parameters:
+ 
+        DynamoDBArn: !GetAtt DynamoDBStack.Outputs.TableArn
+        DynamoDBTableName: !GetAtt DynamoDBStack.Outputs.TableName
+
+  ApiGatewayStack:
+
+    Type: AWS::CloudFormation::Stack
+    DependsOn: LambdaStack
+    Properties:
+
+     TemplateURL: https://my-cft-projects-templates-mama.s3.ap-south-2.amazonaws.com/Project2-Server-Less/api-gateway.yaml
+
+     Parameters:
+
+       LambdaVisitorFunctionArn: !GetAtt LambdaStack.Outputs.LambdaFunctionArn
+
+
+
+Outputs:
+
+  TableArn:
+
+    Value: !GetAtt DynamoDBStack.Outputs.TableArn
+
+  LambdaFunctionArn:
+
+    Value: !GetAtt LambdaStack.Outputs.LambdaFunctionArn
+
+  ApiInvokeUrl:
+
+    Value: !GetAtt ApiGatewayStack.Outputs.ApiInvokeUrl

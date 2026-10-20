@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: IAM Role For DynamoDB and CloudWatch logs.
+
+Parameters:
+
+  DynamoDBArn:
+    Type: String
+
+  DynamoDBTableName:
+    Type: String
+
+
+Resources:
+
+  LambdaExecutionRole:
+  
+    Type: AWS::IAM::Role
+    Properties:
+ 
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17	
+        Statement:
+          - Effect: Allow
+            Principal: 
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+
+
+      Policies:
+        - PolicyName: AccesstoDynamoDBandCloudWatch
+          PolicyDocument: 
+            Version: 2012-10-17
+            Statement: 
+              - Effect: Allow
+                Action: 
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+
+                Resource: !Ref DynamoDBArn
+
+
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+
+                Resource: "*"
+
+
+  LambdaVisitorsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+ 
+      FunctionName: LambdaVisitorsCounterFunction
+ 
+      Runtime: python3.12
+
+      Handler: index.lambda_handler
+
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+      Timeout: 10
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DynamoDBTableName 	
+         
+      Code:
+
+        ZipFile: |
+
+          import json
+          import boto3
+          import os
+
+          dynamodb = boto3.resource('dynamodb')
+
+          table = dynamodb.Table(
+            os.environ['TABLE_NAME']
+            )
+
+          def lambda_handler(event, context):
+
+            response = table.update_item(
+              Key={
+                 'id': 'visitor'
+               },
+              UpdateExpression='ADD #count :inc',
+              ExpressionAttributeNames={
+                  '#count': 'count'
+                },
+              ExpressionAttributeValues={
+                  ':inc': 1
+                 },
+              ReturnValues='UPDATED_NEW'
+               )
+
+            visitor_count = response['Attributes']['count']
+
+            return {
+              'statusCode': 200,
+               'body': json.dumps({
+                  'visitorCount': visitor_count
+                    })
+                   }
+
+Outputs:
+
+  LambdaFunctionName:
+    Value: !Ref LambdaVisitorsFunction
+
+  LambdaFunctionArn:
+    Value: !GetAtt LambdaVisitorsFunction.Arn
+
+              
+
+
+     

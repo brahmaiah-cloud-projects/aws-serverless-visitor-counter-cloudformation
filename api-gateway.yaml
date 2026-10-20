@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: API Gateway
+
+
+Parameters:
+
+  LambdaVisitorFunctionArn:
+    Type: String
+
+Resources:
+
+  MyAPIGateway:
+
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+
+      Name: VisitCounterAPI
+
+  
+  MyAPIResource:
+
+    Type: AWS::ApiGateway::Resource
+    Properties:
+
+      RestApiId: !Ref MyAPIGateway
+
+      ParentId: !GetAtt MyAPIGateway.RootResourceId
+
+      PathPart: visitor
+
+  MyAPIGetMethod:
+
+    Type: AWS::ApiGateway::Method
+    Properties:
+
+      RestApiId: !Ref MyAPIGateway
+ 
+      ResourceId: !Ref MyAPIResource
+
+      HttpMethod: GET
+
+      AuthorizationType: NONE
+
+      Integration:
+
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - LambdaArn : !Ref LambdaVisitorFunctionArn
+
+
+
+  LambdaInvokePermission:
+
+    Type: AWS::Lambda::Permission
+    Properties:
+
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaVisitorFunctionArn
+      Principal: apigateway.amazonaws.com
+
+
+  ApiGatewayDeployment:
+
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - MyAPIGetMethod
+
+    Properties:
+      RestApiId: !Ref MyAPIGateway
+
+  ProdStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+ 
+      StageName: prod
+      RestApiId: !Ref MyAPIGateway
+      DeploymentId: !Ref ApiGatewayDeployment
+
+
+
+Outputs: 
+
+  ApiGatewayId: 
+  
+    Value: !Ref MyAPIGateway
+
+  ApiRootResourceId: 
+
+    Value: !GetAtt MyAPIGateway.RootResourceId
+
+  ApiInvokeUrl:
+
+    Value: !Sub "https://${MyAPIGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/visitor"
+
+
+  
